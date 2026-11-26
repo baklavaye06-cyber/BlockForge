@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07151b">
+<meta name="description" content="BLOCKFORGE V12 - klasik blok bulmaca oyunu.">
+<meta name="application-name" content="BLOCKFORGE">
+<meta name="color-scheme" content="dark">
+<title>BLOCKFORGE V12</title>
+<style>
+:root{
+--bg:#07151b;--panel:#10242b;--panel2:#18343c;--accent:#61f5c5;
+--text:#eafff8;--muted:#91b7ad;--cell:#122a31;--line:#25434a;
+--b1:#52e6bd;--b2:#16aa94;--glow:rgba(60,255,205,.3);
+--radius:5px
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Arial,sans-serif;min-height:100svh}
+body{padding-bottom:env(safe-area-inset-bottom)}
+body{
+color:var(--text);background:var(--bg);overflow-x:hidden;
+background-image:radial-gradient(ellipse at 50% 0%,var(--glow),transparent 70%);
+transition:background .5s
+}
+button,select{font:inherit}
+button{cursor:pointer;color:inherit}
+#atmosphere,#particles{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+#atmosphere{z-index:0}
+#particles{z-index:20}
+.app{position:relative;z-index:1;width:min(1050px,100%);margin:auto;padding:15px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.logo{font-size:clamp(20px,4vw,29px);font-weight:1000;letter-spacing:2px}
+.logo span,.menuLogo span{color:var(--accent)}
+.version{font-size:10px;letter-spacing:3px;color:var(--muted);margin-top:4px}
+.stats{display:flex;gap:6px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 12px;min-width:72px;text-align:center}
+.stat small{display:block;color:var(--muted);font-size:9px;letter-spacing:1px}
+.stat b{font-size:19px}
+.hud{text-align:center;padding:7px;min-height:55px}
+#themeName{font-weight:1000;font-size:clamp(18px,4vw,26px);letter-spacing:3px;color:var(--accent);text-shadow:0 0 20px var(--glow)}
+#themeMessage{font-size:11px;color:var(--muted);margin-top:4px}
+.game{display:flex;flex-direction:column;align-items:center;gap:12px}
+.boardPanel{width:100%;display:flex;justify-content:center}
+.board{
+width:min( min(70vh,650px), 94vw);aspect-ratio:1;
+display:grid;grid-template-columns:repeat(10,1fr);grid-template-rows:repeat(10,1fr);
+gap:clamp(2px,.55vw,5px);padding:clamp(5px,1vw,9px);
+border-radius:17px;background:var(--cell);border:1px solid var(--line);
+box-shadow:0 18px 60px #0005,inset 0 0 30px #0004;
+touch-action:none;position:relative;overflow:hidden
+}
+.cell{min-width:0;min-height:0;position:relative;border-radius:var(--radius);background:#ffffff09;border:1px solid #ffffff0b}
+.cell.filled{
+background:linear-gradient(145deg,var(--b1),var(--b2));
+border:1px solid #ffffff55;
+box-shadow:inset 2px 2px 4px #ffffff55,inset -3px -4px 7px #0003,0 2px 6px var(--glow)
+}
+.cell.filled:after{content:"";position:absolute;left:14%;top:12%;width:35%;height:15%;border-radius:50%;background:#ffffff55}
+.cell.justPlaced{animation:land .17s ease-out}
+@keyframes land{0%{transform:scale(.65);filter:brightness(1.7)}100%{transform:scale(1);filter:brightness(1)}}
+.cell.preview{background:color-mix(in srgb,var(--accent) 42%,transparent);border:1px solid var(--accent)}
+.cell.invalid{background:#ff526055;border:1px solid #ff5260}
+.cell.clearing{animation:clear .23s ease-in forwards}
+@keyframes clear{50%{transform:scale(1.12);filter:brightness(1.7)}100%{transform:scale(.05);opacity:0}}
+.piecesPanel{width:min(100%,760px);background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:11px}
+.piecesTitle{font-size:11px;letter-spacing:2px;color:var(--muted);text-align:center;margin-bottom:9px}
+.pieces{display:flex;justify-content:space-evenly;align-items:center;gap:8px;min-height:91px}
+.piece{
+display:grid;grid-template-columns:repeat(5,clamp(14px,4vw,24px));
+grid-template-rows:repeat(5,clamp(14px,4vw,24px));gap:3px;padding:8px;
+border:2px solid transparent;border-radius:12px;background:#ffffff05;
+touch-action:none;user-select:none;cursor:grab;transition:transform .13s,border-color .13s
+}
+.piece.selected{border-color:var(--accent);background:var(--glow);transform:translateY(-3px)}
+.piece.used{opacity:.13;pointer-events:none}
+.mini{border-radius:3px;background:transparent}
+.mini.on{background:linear-gradient(145deg,var(--b1),var(--b2));box-shadow:inset 1px 1px 3px #fff8}
+.controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:min(100%,760px)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:10px 15px;font-weight:800;font-size:12px;transition:filter .15s,transform .15s}
+.btn:hover{filter:brightness(1.2);transform:translateY(-1px)}
+.btn.primary{background:var(--accent);color:#06221b;border-color:transparent}
+.hint{font-size:11px;color:var(--muted);line-height:1.6;text-align:center}
+.progress{height:7px;background:#0005;border-radius:10px;margin-top:8px;overflow:hidden}
+.progress div{height:100%;background:var(--accent);width:0;transition:width .25s}
+.overlay,.modal{position:fixed;inset:0;z-index:50;background:#02090ded;display:grid;place-items:center;padding:16px;backdrop-filter:blur(10px)}
+.menuCard,.modalCard{width:min(460px,100%);padding:25px;border:1px solid var(--line);border-radius:23px;background:linear-gradient(145deg,var(--panel),#071219);box-shadow:0 25px 90px #0009;text-align:center}
+.menuLogo{font-size:clamp(32px,9vw,52px);font-weight:1000;letter-spacing:3px}
+.menuDesc{color:var(--muted);font-size:13px;line-height:1.6;margin:10px 0 19px}
+.menuButtons{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.menuButtons .primary{grid-column:1/-1;padding:15px}
+.record{margin-top:17px;color:var(--muted);font-size:12px}
+.settingRow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px;text-align:left}
+select{max-width:165px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px}
+.hidden{display:none!important}
+.modalCard h2{margin-top:0}
+#dragGhost{position:fixed;z-index:40;pointer-events:none;display:grid;gap:3px;transform:translate(-50%,-65%);filter:drop-shadow(0 6px 12px var(--glow))}
+#dragGhost i{width:clamp(21px,5.5vw,31px);aspect-ratio:1;border-radius:4px;background:linear-gradient(145deg,var(--b1),var(--b2))}
+#dragGhost i.empty{background:transparent}
+#comboBanner{position:fixed;z-index:30;top:35%;left:50%;transform:translate(-50%,-50%);opacity:0;pointer-events:none;text-align:center;font-size:clamp(27px,8vw,52px);font-weight:1000;color:var(--accent);text-shadow:0 0 20px var(--glow);white-space:nowrap}
+#comboBanner.show{animation:combo .7s ease-out}
+@keyframes combo{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}25%{opacity:1;transform:translate(-50%,-50%) scale(1.13)}100%{opacity:0;transform:translate(-50%,-65%) scale(.95)}}
+#toast{position:fixed;z-index:60;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 17px;border-radius:20px;font-size:12px;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.show{opacity:1}
+body.ultralite #atmosphere,body.ultralite #particles{display:none}
+body.lite #particles{display:none}
+body.ultralite .cell.filled:after,body.lite .cell.filled:after{display:none}
+body.ultralite .cell.filled{box-shadow:none}
+body.ultralite .board{box-shadow:none}
+body.noanimations *,body.noanimations *:before,body.noanimations *:after{animation:none!important;transition:none!important}
+
+@media(prefers-reduced-motion:reduce){
+*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+.btn:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:650px){
+.app{padding:8px}
+header{align-items:center}
+.stats{gap:4px}
+.stat{min-width:0;padding:7px 8px}
+.stat b{font-size:16px}
+.board{width:min(96vw,66vh);gap:3px;padding:6px;border-radius:13px}
+.piecesPanel{padding:8px}
+.pieces{min-height:83px;gap:2px}
+.piece{gap:2px;padding:5px}
+.controls .btn{flex:1;min-width:90px}
+.hud{min-height:48px}
+}
+</style>
+</head>
+<body data-theme="0">
+<div id="atmosphere"></div>
+<div id="particles"></div>
+<div id="comboBanner"></div>
+<div id="dragGhost" class="hidden"></div>
+<div id="toast"></div>
+
+<div class="app">
+<header>
+ <div>
+  <div class="logo">BLOCK<span>FORGE</span></div>
+  <div class="version">V12 · CLASSIC WORLDS</div>
+ </div>
+ <div class="stats">
+  <div class="stat"><small>SKOR</small><b id="score">0</b></div>
+  <div class="stat"><small>REKOR</small><b id="best">0</b></div>
+  <div class="stat"><small>SEVİYE</small><b id="level">1</b></div>
+ </div>
+</header>
+
+<div class="hud">
+ <div id="themeName">SLIME WORLD</div>
+ <div id="themeMessage">Bloklarını yerleştir ve rekorunu kır!</div>
+</div>
+
+<main class="game">
+ <div class="boardPanel"><div class="board" id="board"></div></div>
+ <section class="piecesPanel">
+  <div class="pieces" id="pieces"></div>
+ </section>
+ <div class="controls">
+  <button class="btn" id="pauseBtn">Ⅱ DURAKLAT</button>
+  <button class="btn" id="settingsBtn">⚙ AYARLAR</button>
+  <button class="btn" id="newBtn">↻ YENİ OYUN</button>
+ </div>
+ <div style="width:min(100%,500px)">
+  <div class="hint">SONRAKİ SEVİYE</div>
+  <div class="progress"><div id="xpbar"></div></div>
+ </div>
+</main>
+</div>
+
+<div class="overlay" id="menu">
+ <div class="menuCard">
+  <div class="menuLogo">BLOCK<span>FORGE</span></div>
+  <div class="menuDesc">Klasik blok bulmacası. 20 atmosfer, akıcı animasyonlar ve yepyeni V12 deneyimi.</div>
+  <div class="settingRow"><span>Oyun modu</span>
+   <select id="gameMode">
+    <option value="classic">Classic Endless</option>
+    <option value="adventure">Adventure</option>
+    <option value="daily">Daily Puzzle</option>
+   </select>
+  </div>
+  <div class="menuButtons" style="margin-top:12px">
+   <button class="btn primary" id="menuNew">OYUNA BAŞLA</button>
+   <button class="btn" id="menuContinue">DEVAM ET</button>
+   <button class="btn" id="menuSettings">AYARLAR</button>
+  </div>
+  <div class="record">EN YÜKSEK REKOR: <b id="menuBest">0</b></div>
+ </div>
+</div>
+
+<div class="modal hidden" id="pauseModal">
+ <div class="modalCard">
+  <h2>OYUN DURAKLATILDI</h2>
+  <p class="hint">Oyunun kaydedildi.</p>
+  <button class="btn primary" style="width:100%" id="resumeBtn">DEVAM ET</button>
+  <button class="btn" style="width:100%;margin-top:8px" id="pauseNew">YENİ OYUN</button>
+  <button class="btn" style="width:100%;margin-top:8px" id="pauseMenu">ANA MENÜ</button>
+ </div>
+</div>
+
+<div class="modal hidden" id="settingsModal">
+ <div class="modalCard">
+  <h2>GÖRÜNTÜ AYARLARI</h2>
+  <div class="settingRow"><span>Grafik kalitesi</span>
+   <select id="quality">
+    <option value="ultralite">Ultra Lite</option>
+    <option value="low">Düşük</option>
+    <option value="medium" selected>Orta</option>
+    <option value="high">Yüksek</option>
+    <option value="ultra">Ultra</option>
+   </select>
+  </div>
+  <div class="settingRow"><span>Animasyonlar</span>
+   <select id="animations"><option value="on">Açık</option><option value="off">Kapalı</option></select>
+  </div>
+  <div class="settingRow"><span>Ses efektleri</span>
+   <select id="sound"><option value="on">Açık</option><option value="off">Kapalı</option></select>
+  </div>
+  <div class="settingRow"><span>Ekran sarsıntısı</span>
+   <select id="shake"><option value="on">Açık</option><option value="off">Kapalı</option></select>
+  </div>
+  <button class="btn primary" style="width:100%;margin-top:18px" id="closeSettings">KAYDET</button>
+ </div>
+</div>
+
+<div class="modal hidden" id="gameOver">
+ <div class="modalCard">
+  <h2 id="overTitle">OYUN BİTTİ!</h2>
+  <p class="hint" id="overMessage">Yerleştirecek uygun alan kalmadı.</p>
+  <h1 id="finalScore">0</h1>
+  <button class="btn primary" style="width:100%" id="gameOverNew">TEKRAR OYNA</button>
+  <button class="btn" style="width:100%;margin-top:8px" id="gameOverMenu">ANA MENÜ</button>
+ </div>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const W=10,H=10;
+const themes=[
+{name:"SLIME WORLD",message:"Yumuşak slime enerjisi!",bg:"#07151b",panel:"#10242b",panel2:"#18343c",accent:"#61f5c5",text:"#eafff8",muted:"#91b7ad",cell:"#122a31",line:"#25434a",b1:"#52e6bd",b2:"#16aa94",glow:"rgba(60,255,205,.3)"},
+{name:"PINK DREAM",message:"Pembe rüyaların dünyası!",bg:"#210c26",panel:"#35183c",panel2:"#512254",accent:"#ff82dc",text:"#fff0ff",muted:"#d3a4cf",cell:"#2a1231",line:"#713b70",b1:"#ff9de7",b2:"#bd43c4",glow:"rgba(255,80,220,.32)"},
+{name:"ICE KINGDOM",message:"Kristallerin soğuk gücü!",bg:"#071d31",panel:"#102d45",panel2:"#19415b",accent:"#83eaff",text:"#effbff",muted:"#9bc9dc",cell:"#102a40",line:"#28516c",b1:"#c1f5ff",b2:"#36a8db",glow:"rgba(90,220,255,.3)"},
+{name:"MAGMA CORE",message:"Ateşin gücünü hisset!",bg:"#261409",panel:"#3a2110",panel2:"#593117",accent:"#ffc45b",text:"#fff5df",muted:"#d8b58b",cell:"#301d12",line:"#704521",b1:"#ffe18a",b2:"#e77b24",glow:"rgba(255,165,45,.3)"},
+{name:"EMERALD FOREST",message:"Büyülü ormanın derinlikleri!",bg:"#071d12",panel:"#102c1c",panel2:"#1c472b",accent:"#8bff9c",text:"#effff0",muted:"#a0c9a7",cell:"#102719",line:"#2b5836",b1:"#9bff9b",b2:"#22a653",glow:"rgba(65,255,115,.28)"},
+{name:"VIOLET LEGEND",message:"Mor enerjinin gizemi!",bg:"#160d2c",panel:"#261844",panel2:"#39235f",accent:"#c7a0ff",text:"#f8f0ff",muted:"#b9a6d8",cell:"#211537",line:"#523d78",b1:"#dfbdff",b2:"#8752d9",glow:"rgba(175,100,255,.32)"},
+{name:"COSMIC VOID",message:"Galaksinin sonsuzluğu!",bg:"#090b27",panel:"#17183b",panel2:"#29265a",accent:"#ff9dff",text:"#fff4ff",muted:"#b5b8e2",cell:"#141633",line:"#454779",b1:"#ffb4f9",b2:"#655cff",glow:"rgba(165,105,255,.4)"},
+{name:"GOLDEN TEMPLE",message:"Altın çağın ihtişamı!",bg:"#211a08",panel:"#382c12",panel2:"#59451a",accent:"#ffe28a",text:"#fff9e7",muted:"#d7c28d",cell:"#2b230f",line:"#6d5928",b1:"#fff0a3",b2:"#c58b25",glow:"rgba(255,210,80,.3)"},
+{name:"BLOOD MOON",message:"Kızıl ay yükseliyor!",bg:"#21090f",panel:"#39121c",panel2:"#581b2a",accent:"#ff738c",text:"#fff0f2",muted:"#d6a0aa",cell:"#2b1019",line:"#713044",b1:"#ff9aaa",b2:"#c52d50",glow:"rgba(255,60,90,.3)"},
+{name:"DEEP OCEAN",message:"Derin denizlerin sessizliği!",bg:"#061c2a",panel:"#0c3042",panel2:"#14516a",accent:"#66e6ff",text:"#e9fbff",muted:"#91c9d8",cell:"#0b2939",line:"#24566b",b1:"#8af1ff",b2:"#1685c4",glow:"rgba(60,210,255,.3)"},
+{name:"CYBER CITY",message:"Neon ışıkların şehri!",bg:"#090b1b",panel:"#171b36",panel2:"#262d52",accent:"#6dffef",text:"#efffff",muted:"#9ebbc7",cell:"#12172c",line:"#38486a",b1:"#7dfff0",b2:"#a34cff",glow:"rgba(80,255,240,.35)"},
+{name:"DESERT KING",message:"Kumların altındaki sırlar!",bg:"#261b0e",panel:"#3b2a17",panel2:"#5b4122",accent:"#ffd08a",text:"#fff5e6",muted:"#d3b58f",cell:"#302313",line:"#6a4d2c",b1:"#ffe0a3",b2:"#c27b35",glow:"rgba(255,190,100,.3)"},
+{name:"TOXIC LAB",message:"Yeşil enerji kontrolden çıktı!",bg:"#111c08",panel:"#202f10",panel2:"#354d17",accent:"#d0ff4f",text:"#f5ffe6",muted:"#b8ce8d",cell:"#1a2b0d",line:"#4b6722",b1:"#e4ff78",b2:"#75ba20",glow:"rgba(180,255,50,.3)"},
+{name:"DARK MATTER",message:"Karanlığın içindeki ışık!",bg:"#08080d",panel:"#17171f",panel2:"#292936",accent:"#d4d4ff",text:"#f3f3ff",muted:"#aaaabd",cell:"#12121b",line:"#3d3d52",b1:"#e4e4ff",b2:"#65658b",glow:"rgba(180,180,255,.25)"},
+{name:"AURORA",message:"Kutup ışıkları dans ediyor!",bg:"#061c22",panel:"#0e3033",panel2:"#185052",accent:"#9affd7",text:"#eafff8",muted:"#a1d4c8",cell:"#102c30",line:"#2b5d5c",b1:"#a0ffe2",b2:"#42a8ce",glow:"rgba(90,255,210,.3)"},
+{name:"CANDY LAND",message:"Şeker gibi renkli bir dünya!",bg:"#28132b",panel:"#402044",panel2:"#63315e",accent:"#ffb4dc",text:"#fff3fb",muted:"#d8a9c9",cell:"#321b37",line:"#784c73",b1:"#ffc0e9",b2:"#a56bff",glow:"rgba(255,130,220,.3)"},
+{name:"STORM BREAKER",message:"Fırtınanın gücünü yakala!",bg:"#111827",panel:"#202d40",panel2:"#30455e",accent:"#a8d8ff",text:"#f1f7ff",muted:"#aabbd0",cell:"#1a293b",line:"#405875",b1:"#c4e8ff",b2:"#527fb9",glow:"rgba(120,190,255,.3)"},
+{name:"CHERRY BLOSSOM",message:"Pembe yapraklar dans ediyor!",bg:"#26131d",panel:"#3b202d",panel2:"#5a3045",accent:"#ffb5c9",text:"#fff1f5",muted:"#d6a8b8",cell:"#321b28",line:"#704359",b1:"#ffc6d8",b2:"#d96b9c",glow:"rgba(255,150,190,.3)"},
+{name:"RADIOACTIVE",message:"Enerji sınırları aşıyor!",bg:"#111a08",panel:"#263516",panel2:"#3e5420",accent:"#baff39",text:"#f6ffe7",muted:"#b8d38d",cell:"#1b2c10",line:"#536c2c",b1:"#d6ff69",b2:"#64a820",glow:"rgba(180,255,50,.32)"},
+{name:"SUNSET DRIVE",message:"Gün batımının sıcak renkleri!",bg:"#27121b",panel:"#40202a",panel2:"#643345",accent:"#ffad77",text:"#fff2e9",muted:"#d6aa99",cell:"#351d27",line:"#754354",b1:"#ffd08a",b2:"#e65d73",glow:"rgba(255,130,90,.3)"}
+];
+
+/* Klasik blok parçaları: tekli, ikili, çizgiler, kareler, L/T/Z ve büyük şekiller */
+const shapes=[
+[[0,0]],
+[[0,0],[1,0]],[[0,0],[0,1]],
+[[0,0],[1,0],[2,0]],[[0,0],[0,1],[0,2]],
+[[0,0],[1,0],[2,0],[3,0]],[[0,0],[0,1],[0,2],[0,3]],
+[[0,0],[1,0],[2,0],[3,0],[4,0]],[[0,0],[0,1],[0,2],[0,3],[0,4]],
+[[0,0],[1,0],[0,1],[1,1]],
+[[0,0],[1,0],[2,0],[0,1],[1,1],[2,1]],
+[[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[0,2],[1,2],[2,2]],
+[[0,0],[0,1],[0,2],[1,2]],
+[[0,0],[1,0],[2,0],[2,1],[2,2]],
+[[0,0],[1,0],[2,0],[0,1]],
+[[0,0],[1,0],[0,1],[0,2]],
+[[0,0],[1,0],[1,1],[1,2]],
+[[0,0],[1,0],[2,0],[1,1]],
+[[1,0],[0,1],[1,1],[2,1],[1,2]],
+[[0,0],[1,0],[1,1],[2,1]],
+[[1,0],[2,0],[0,1],[1,1]],
+[[0,0],[1,0],[2,0],[0,1],[0,2]],
+[[0,0],[1,0],[2,0],[2,1],[2,2]],
+[[0,0],[0,1],[1,1],[1,2]],
+[[1,0],[1,1],[0,1],[0,2]],
+[[0,0],[1,0],[2,0],[0,1],[2,1]],
+[[0,0],[1,0],[2,0],[1,1],[1,2]],
+[[0,0],[1,0],[0,1],[1,1],[0,2],[1,2]]
+];
+
+let board=[],score=0,best=Number(localStorage.getItem("bf12_best")||0);
+let level=1,cleared=0,combo=0,xp=0;
+let pieces=[],selected=0,active=false,paused=false;
+let quality="medium",animations="on",sound="on",shake="on";
+let drag=null,mode="classic",sprintStart=0,sprintTimer=null;
+let themeIndex=0,locked=false,dailyRandom=null,suppressBoardClick=false;
+
+function freshBoard(){return Array.from({length:H},()=>Array(W).fill(0))}
+function rand(n){
+ const value=dailyRandom?dailyRandom():Math.random();
+ return Math.floor(value*n);
+}
+function makeDailyRandom(){
+ const d=new Date();
+ let seed=Number(`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`);
+ return ()=>{
+  seed=(seed*1664525+1013904223)>>>0;
+  return seed/4294967296;
+ };
+}
+function toast(msg){
+ const t=$("toast");t.textContent=msg;t.classList.add("show");
+ setTimeout(()=>t.classList.remove("show"),1500)
+}
+function applyTheme(n){
+ themeIndex=n;const t=themes[n],root=document.documentElement;
+ const vars={bg:t.bg,panel:t.panel,panel2:t.panel2,accent:t.accent,text:t.text,muted:t.muted,cell:t.cell,line:t.line,b1:t.b1,b2:t.b2,glow:t.glow};
+ Object.entries(vars).forEach(([k,v])=>root.style.setProperty("--"+k,v));
+ $("themeName").textContent=t.name;$("themeMessage").textContent=t.message;
+ document.body.dataset.theme=n;
+}
+function chooseTheme(){
+ let n=themeIndex;while(n===themeIndex)n=rand(themes.length);
+ applyTheme(n);
+}
+function burst(count=12,x=50,y=50){
+ if(quality==="ultralite"||quality==="low"||quality==="off")return;
+ if(quality==="low"||quality==="medium")count=Math.min(count,quality==="low"?5:10);
+ if(quality==="high")count=Math.min(count,22);
+ const root=$("particles");
+ for(let i=0;i<count;i++){
+  const p=document.createElement("span");
+  p.textContent=["✦","·","✧","◆"][rand(4)];
+  p.style.cssText=`position:absolute;left:${x}%;top:${y}%;font-size:${9+rand(12)}px;color:${themes[themeIndex].accent};text-shadow:0 0 9px currentColor`;
+  root.appendChild(p);
+  const dx=rand(120)-60,dy=rand(110)-55;
+  const a=p.animate([{transform:"translate(0,0) scale(.5)",opacity:1},{transform:`translate(${dx}px,${dy}px) scale(0)`,opacity:0}],{duration:500+rand(300),easing:"ease-out"});
+  a.onfinish=()=>p.remove();
+ }
+}
+function renderBoard(){
+ const root=$("board");root.innerHTML="";
+ const frag=document.createDocumentFragment();
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  const c=document.createElement("div");c.className="cell";
+  c.dataset.x=x;c.dataset.y=y;
+  if(board[y][x])c.classList.add("filled");
+  frag.appendChild(c);
+ }
+ root.appendChild(frag);updateStats();
+}
+function updateStats(){
+ $("score").textContent=score;$("best").textContent=best;$("level").textContent=level;
+ $("xpbar").style.width=(xp%100)+"%";
+}
+function newPieces(){
+ pieces=Array.from({length:3},()=>({shape:shapes[rand(shapes.length)],used:false}));
+ selected=0;renderPieces();
+}
+function renderPieces(){
+ const root=$("pieces");root.innerHTML="";
+ pieces.forEach((p,i)=>{
+  const el=document.createElement("div");
+  el.className="piece"+(i===selected&&!p.used?" selected":"")+(p.used?" used":"");
+  el.dataset.index=i;
+  for(let y=0;y<5;y++)for(let x=0;x<5;x++){
+   const m=document.createElement("i");m.className="mini";
+   if(p.shape.some(([sx,sy])=>sx===x&&sy===y))m.classList.add("on");
+   el.appendChild(m);
+  }
+  root.appendChild(el);
+ });
+}
+function canPlace(shape,x,y){
+ return shape.every(([dx,dy])=>x+dx>=0&&x+dx<W&&y+dy>=0&&y+dy<H&&!board[y+dy][x+dx]);
+}
+function cellAt(x,y){return $("board").children[y*W+x]}
+function clearPreview(){
+ $("board").querySelectorAll(".preview,.invalid").forEach(c=>c.classList.remove("preview","invalid"));
+}
+function previewAt(x,y,shape){
+ clearPreview();if(!shape)return;
+ const valid=canPlace(shape,x,y);
+ shape.forEach(([dx,dy])=>{
+  if(x+dx>=0&&x+dx<W&&y+dy>=0&&y+dy<H)
+   cellAt(x+dx,y+dy).classList.add(valid?"preview":"invalid");
+ });
+}
+function beep(freq,duration){
+ if(sound!=="on")return;
+ try{
+  const ctx=new(window.AudioContext||window.webkitAudioContext)();
+  const osc=ctx.createOscillator(),gain=ctx.createGain();
+  osc.frequency.value=freq;gain.gain.value=.025;
+  osc.connect(gain);gain.connect(ctx.destination);osc.start();
+  gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+duration);
+  osc.stop(ctx.currentTime+duration);
+  osc.onended=()=>ctx.close();
+ }catch(e){}
+}
+function showCombo(lines,gain){
+ const words=["","GOOD!","AMAZING!","UNREAL!","INSANE!","LEGENDARY!","PERFECT!"];
+ const b=$("comboBanner");b.textContent=(words[Math.min(lines,6)]||"PERFECT!")+"  +"+gain;
+ b.classList.remove("show");void b.offsetWidth;b.classList.add("show");
+ $("themeMessage").textContent=lines+" satır temizlendi · "+combo+" combo!";
+}
+function saveGame(){
+ if(score>best){best=score;localStorage.setItem("bf12_best",best)}
+ $("best").textContent=best;$("menuBest").textContent=best;
+ const data={board,score,level,cleared,combo,xp,pieces,selected,themeIndex,mode};
+ try{localStorage.setItem("bf12_session",JSON.stringify(data))}catch(e){}
+}
+function finishClear(rows,cols){
+ rows.forEach(r=>board[r].fill(0));
+ cols.forEach(c=>{for(let r=0;r<H;r++)board[r][c]=0});
+ renderBoard();chooseTheme();burst(quality==="ultra"?35:quality==="high"?22:10);
+ locked=false;saveGame();checkGameOver();
+}
+function place(shape,x,y,index){
+ if(!active||paused||locked||!canPlace(shape,x,y))return false;
+ const added=[];
+ shape.forEach(([dx,dy])=>{board[y+dy][x+dx]=1;added.push([x+dx,y+dy])});
+ if(index!==undefined&&pieces[index])pieces[index].used=true;
+ score+=shape.length*5;clearPreview();renderBoard();
+ if(animations==="on"&&quality!=="ultralite"&&quality!=="low"){
+  added.forEach(([cx,cy],i)=>setTimeout(()=>cellAt(cx,cy)?.classList.add("justPlaced"),i*5));
+ }
+ const rows=[],cols=[];
+ for(let r=0;r<H;r++)if(board[r].every(Boolean))rows.push(r);
+ for(let c=0;c<W;c++)if(board.every(row=>row[c]))cols.push(c);
+ const lines=rows.length+cols.length;
+ if(lines){
+  locked=true;combo++;cleared+=lines;xp+=lines*20;
+  const gain=lines*lines*100*combo;score+=gain;
+  level=1+Math.floor(cleared/10);showCombo(lines,gain);
+  if(shake==="on"&&quality!=="ultralite"&&quality!=="low"&&lines>=2){
+   document.body.animate([{transform:"translateX(0)"},{transform:"translateX(-3px)"},{transform:"translateX(3px)"},{transform:"translateX(0)"}],{duration:150});
+  }
+  const remove=new Set();
+  rows.forEach(r=>{for(let c=0;c<W;c++)remove.add(r*W+c)});
+  cols.forEach(c=>{for(let r=0;r<H;r++)remove.add(r*W+c)});
+  if(animations==="on"&&quality!=="low")
+   remove.forEach(i=>cellAt(i%W,Math.floor(i/W))?.classList.add("clearing"));
+  beep(400+lines*90,.12);
+  const delay=animations==="on"&&quality!=="ultralite"&&quality!=="low"?180:10;
+  setTimeout(()=>finishClear(rows,cols),delay);
+ }else{
+  combo=0;$("themeMessage").textContent="Güzel hamle! Sıradaki bloğu yerleştir.";
+  beep(260,.045);
+ }
+ if(pieces.every(p=>p.used))newPieces();
+ else{selected=pieces.findIndex(p=>!p.used);renderPieces()}
+ updateStats();saveGame();
+ if(!lines)checkGameOver();
+ return true;
+}
+function checkGameOver(){
+ if(!active||locked)return;
+ const remaining=pieces.filter(p=>!p.used);
+ if(remaining.length&&!remaining.some(p=>board.some((row,y)=>row.some((v,x)=>!v&&canPlace(p.shape,x,y))))){
+  active=false;stopSprint();
+  $("finalScore").textContent=score;
+  $("overTitle").textContent="OYUN BİTTİ!";
+  $("overMessage").textContent="Yerleştirecek uygun alan kalmadı.";
+  $("gameOver").classList.remove("hidden");saveGame();
+ }
+}
+function stopSprint(){if(sprintTimer){clearInterval(sprintTimer);sprintTimer=null}}
+function startSprintClock(){
+ stopSprint();sprintStart=Date.now();
+ sprintTimer=setInterval(()=>{
+  if(!active||paused)return;
+  const left=Math.max(0,300-Math.floor((Date.now()-sprintStart)/1000));
+  $("themeMessage").textContent="SPRINT · "+Math.floor(left/60)+":"+String(left%60).padStart(2,"0");
+  if(left<=0){
+   active=false;stopSprint();$("finalScore").textContent=score;
+   $("overTitle").textContent="SÜRE DOLDU!";
+   $("overMessage").textContent="Sprint tamamlandı. Skorun kaydedildi.";
+   $("gameOver").classList.remove("hidden");saveGame();
+  }
+ },500);
+}
+function startNew(){
+ board=freshBoard();score=0;level=1;cleared=0;combo=0;xp=0;
+ mode=$("gameMode").value;active=true;paused=false;locked=false;
+ $("themeMessage").textContent=mode==="daily"?"Günün bulmacası":mode==="adventure"?"Macera yolculuğu başladı":"Klasik sonsuz oyun";
+ dailyRandom=mode==="daily"?makeDailyRandom():null;
+ applyTheme(0);newPieces();renderBoard();
+ $("menu").classList.add("hidden");$("pauseModal").classList.add("hidden");$("gameOver").classList.add("hidden");
+ stopSprint();
+ saveGame();
+}
+function continueGame(){
+ try{
+  const s=JSON.parse(localStorage.getItem("bf12_session"));
+  if(!s||!s.board||!s.pieces){startNew();return}
+  board=s.board;score=s.score||0;level=s.level||1;cleared=s.cleared||0;
+  combo=s.combo||0;xp=s.xp||0;pieces=s.pieces;selected=s.selected||0;
+  mode=s.mode||"classic";$("gameMode").value=mode;
+  active=true;paused=false;locked=false;
+  dailyRandom=mode==="daily"?makeDailyRandom():null;
+  applyTheme(s.themeIndex||0);
+  renderBoard();renderPieces();$("menu").classList.add("hidden");
+  stopSprint();
+ }catch(e){startNew()}
+}
+function pauseGame(){
+ if(!active)return;paused=true;saveGame();$("pauseModal").classList.remove("hidden");
+}
+function toMenu(){
+ saveGame();active=false;paused=false;stopSprint();
+ $("pauseModal").classList.add("hidden");$("menu").classList.remove("hidden");
+}
+function makeGhost(shape){
+ const g=$("dragGhost");g.innerHTML="";
+ const maxX=Math.max(...shape.map(p=>p[0]))+1,maxY=Math.max(...shape.map(p=>p[1]))+1;
+ g.style.gridTemplateColumns=`repeat(${maxX},clamp(21px,5.5vw,31px))`;
+ g.style.gridTemplateRows=`repeat(${maxY},clamp(21px,5.5vw,31px))`;
+ for(let y=0;y<maxY;y++)for(let x=0;x<maxX;x++){
+  const d=document.createElement("i");
+  if(!shape.some(([sx,sy])=>sx===x&&sy===y))d.className="empty";
+  g.appendChild(d);
+ }
+ g.classList.remove("hidden");
+}
+function pointerMove(e){
+ if(!drag)return;
+ $("dragGhost").style.left=e.clientX+"px";$("dragGhost").style.top=e.clientY+"px";
+ const hit=document.elementFromPoint(e.clientX,e.clientY);
+ const targetCell=hit&&hit.closest?hit.closest(".cell"):null;
+ if(!targetCell){clearPreview();drag.target=null;return}
+ const x=Number(targetCell.dataset.x),y=Number(targetCell.dataset.y);
+ drag.target={x,y};previewAt(x,y,drag.shape);
+}
+
+/* Dokunma veya tıklama ile parça seçme */
+$("pieces").addEventListener("click",e=>{
+ const piece=e.target.closest(".piece");if(!piece)return;
+ const i=Number(piece.dataset.index);
+ if(pieces[i]&&!pieces[i].used){selected=i;renderPieces()}
+});
+$("board").addEventListener("click",e=>{
+ if(suppressBoardClick){suppressBoardClick=false;return}
+ if(drag)return;
+ const c=e.target.closest(".cell");if(!c||!active||paused||locked)return;
+ const x=Number(c.dataset.x),y=Number(c.dataset.y),p=pieces[selected];
+ if(p&&!p.used&&!place(p.shape,x,y,selected))beep(110,.05);
+});
+
+/* Sürükle-bırak: parça tek şekil olarak taşınır */
+$("pieces").addEventListener("pointerdown",e=>{
+ const piece=e.target.closest(".piece");if(!piece||!active||paused||locked)return;
+ const i=Number(piece.dataset.index),p=pieces[i];if(!p||p.used)return;
+ selected=i;renderPieces();drag={index:i,shape:p.shape,target:null};
+ makeGhost(p.shape);pointerMove(e);
+ try{piece.setPointerCapture(e.pointerId)}catch(_){}
+});
+window.addEventListener("pointermove",e=>{if(drag)pointerMove(e)});
+window.addEventListener("pointerup",e=>{
+ if(!drag)return;
+ const d=drag;drag=null;suppressBoardClick=true;
+ $("dragGhost").classList.add("hidden");clearPreview();
+ const rect=$("board").getBoundingClientRect();
+ if(e.clientX>=rect.left&&e.clientX<=rect.right&&e.clientY>=rect.top&&e.clientY<=rect.bottom&&d.target)
+  place(d.shape,d.target.x,d.target.y,d.index);
+});
+window.addEventListener("pointercancel",()=>{
+ drag=null;suppressBoardClick=true;
+ $("dragGhost").classList.add("hidden");clearPreview();
+});
+
+/* Menü ve butonlar */
+$("menuNew").onclick=startNew;
+$("newBtn").onclick=()=>{if(confirm("Yeni oyun başlatılsın mı?"))startNew()};
+$("menuContinue").onclick=continueGame;
+$("pauseBtn").onclick=pauseGame;
+document.addEventListener("keydown",e=>{
+ if(e.key==="Escape"&&active&&!paused)pauseGame();
+});
+$("resumeBtn").onclick=()=>{paused=false;$("pauseModal").classList.add("hidden")};
+$("pauseNew").onclick=startNew;
+$("pauseMenu").onclick=toMenu;
+$("gameOverNew").onclick=startNew;
+$("gameOverMenu").onclick=toMenu;
+$("settingsBtn").onclick=$("menuSettings").onclick=()=>$("settingsModal").classList.remove("hidden");
+$("closeSettings").onclick=()=>$("settingsModal").classList.add("hidden");
+
+function applyQuality(){
+ quality=$("quality").value;
+ document.body.classList.toggle("ultralite",quality==="ultralite");
+ document.body.classList.toggle("lite",quality==="low");
+ document.documentElement.style.setProperty("--radius",quality==="ultralite"?"2px":quality==="low"?"3px":quality==="medium"?"5px":"6px");
+}
+$("quality").onchange=applyQuality;
+$("animations").onchange=e=>{
+ animations=e.target.value;
+ document.body.classList.toggle("noanimations",animations==="off");
+};
+$("sound").onchange=e=>sound=e.target.value;
+$("shake").onchange=e=>shake=e.target.value;
+function saveSettings(){
+ try{
+  localStorage.setItem("bf12_settings",JSON.stringify({
+   quality:$("quality").value,animations:$("animations").value,
+   sound:$("sound").value,shake:$("shake").value
+  }));
+ }catch(e){}
+}
+["quality","animations","sound","shake"].forEach(id=>$(id).addEventListener("change",saveSettings));
+try{
+ const prefs=JSON.parse(localStorage.getItem("bf12_settings")||"{}");
+ ["quality","animations","sound","shake"].forEach(id=>{if(prefs[id])$(id).value=prefs[id]});
+}catch(e){}
+
+
+/* Başlangıç */
+$("menuBest").textContent=best;$("best").textContent=best;
+board=freshBoard();newPieces();renderBoard();applyTheme(0);
+if(localStorage.getItem("bf12_session"))$("menuContinue").textContent="KALDIĞIN YERDEN";
+applyQuality();
+document.body.classList.toggle("noanimations",animations==="off");
+</script>
+</body>
+</html>
